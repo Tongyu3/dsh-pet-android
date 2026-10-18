@@ -34,7 +34,7 @@ export class HostChannel {
     this.dir = dir;
     this.logger = logger;
     this.gen = 0;
-    this.lastWritten = '';
+    this.lastContent = '';
     this.requestFile = join(dir, 'pet-overlay.json');
     this.stateFile = join(dir, 'pet-overlay.state.json');
     this.lastError = null;
@@ -42,19 +42,20 @@ export class HostChannel {
 
   /**
    * 发布一份全量快照。内容没变就不写盘（宿主按 gen 处理，重复写只会让它白忙）。
+   * gen **只在真正写盘时**递增：拿 gen 当"内容指纹"的话每次都能判定为变化，去重就失效了。
    * @returns {{written:boolean, gen:number, error:string|null}}
    */
   publish(snapshot) {
-    const body = {
+    const content = {
       v: PROTOCOL_VERSION,
-      gen: this.gen + 1,
-      ts: Date.now(),
       enabled: snapshot.enabled !== false,
       baseUrl: snapshot.baseUrl || '',
       windows: Array.isArray(snapshot.windows) ? snapshot.windows : [],
     };
+    const contentJson = JSON.stringify(content);
+    if (contentJson === this.lastContent) return { written: false, gen: this.gen, error: null };
+    const body = { ...content, gen: this.gen + 1, ts: Date.now() };
     const json = JSON.stringify(body, null, 2) + '\n';
-    if (json === this.lastWritten) return { written: false, gen: body.gen, error: null };
     try {
       mkdirSync(this.dir, { recursive: true });
       // 先写临时文件再 rename：宿主任何时刻读到的都是完整 JSON，不会读到半截
@@ -62,7 +63,7 @@ export class HostChannel {
       writeFileSync(tmp, json, 'utf8');
       renameSync(tmp, this.requestFile);
       this.gen = body.gen;
-      this.lastWritten = json;
+      this.lastContent = contentJson;
       this.lastError = null;
       return { written: true, gen: body.gen, error: null };
     } catch (e) {
