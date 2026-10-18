@@ -18,7 +18,7 @@
 | 移植 | 包名 / 仓库 | 宿主通道（有据可查） | 本插件表现 | 差在哪 |
 | --- | --- | --- | --- | --- |
 | **DSHA** | `com.dsh.client` · [DSH-APP/DSHA](https://github.com/DSH-APP/DSHA) | 3090 桥 + `X-Token`（token 在 `/root/.dsh/.bridge_token`，头文件 `.bridge_headers`）；`/app/overlay` 文本悬浮条（`TYPE_APPLICATION_OVERLAY`，**权限由 DSHA 申请**）；`/app/version` 做特性探测 | **开箱可用**：探测 3090 → 宠物的话实时上系统悬浮条；`/app/notify|vibrate|toast` 可选 | 完整宠物窗口需要 DSHA 实现契约 v1。它的 3090 桥**没有** WebView / 图片悬浮窗端点（OverlayController 只画 TextView），插件无法凭空造窗 |
-| **Tdsh** | `com.dshmobile.probe` · [Tongyu3/Tdsh](https://github.com/Tongyu3/Tdsh-DSH-Mobile-Android-NO-ROOT) | `/sdcard/.dsh-phone` 文件通道（`hud.json` 同款）；原生悬浮球/灵动岛 | 写 `pet-overlay.json`；宿主读了就出完整桌宠 | 启动器需读该文件建窗（BallWindow 那套现成，约 120 行 Kotlin，见契约文档） |
+| **Tdsh** | `com.dshmobile.probe` · [Tongyu3/Tdsh](https://github.com/Tongyu3/Tdsh-DSH-Mobile-Android-NO-ROOT) | **宿主侧已实现**：`PetOverlayHost` 挂在 `DshService`，读请求文件 → 建透明悬浮窗 → 回写状态；`DshOverlayHost` 桥提供 `moveTo/resize/screenSize` | **完整桌宠**：动画、拖拽抛掷、气泡、多宠物 | 无（已打通）。注意 DSH 的 Web 在 token 闸门后，宿主会把 token 透传给页面 |
 | **dsh-fusion** | `io.dsh.fusion` · [yuchen1017918/dsh-fusion](https://github.com/yuchen1017918/dsh-fusion) | 自带 `android_*` 设备工具；桌面宠物实现未在 README 说明 | 自动探测：有文件通道/窗口契约就出完整宠物，否则退回文本/页面预览 | 未核实其悬浮接口；按契约 v1 接即可 |
 | **dsh-android** | [yhm080315-sudo/dsh-android](https://github.com/yhm080315-sudo/dsh-android) | 自带 bionic Node，无公开悬浮接口 | 同上（自动探测） | 同左 |
 | **dsh-fcl-launcher** | [sqkl520/dsh-fcl-android-launcher](https://github.com/sqkl520/dsh-fcl-android-launcher) | proot + FCL 风格 GUI | 同上 | 同左 |

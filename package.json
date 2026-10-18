@@ -1,6 +1,6 @@
 {
   "name": "dsh-pet-android",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "dsh-pet 的 Android 上层显示衍生插件：多载体自动探测——DSHA 走 3090 文本悬浮条，Tdsh 等实现窗口契约的移植走透明悬浮窗。插件自身不申请、不处理任何悬浮权限。",
   "type": "module",
   "main": "src/index.js",

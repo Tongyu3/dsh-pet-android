@@ -75,6 +75,18 @@ DSH 安卓版原本就用 `/sdcard/.dsh-phone` 做双向通信（原生灵动岛
 - `applied`：这一代是否已落地（窗口都建好/关好了）。`error` 非空表示这一代失败，插件会在 `/status` 里展示原文。
 - 坐标单位必须与 `screen` 一致（都是物理像素），否则拖动会漂移。
 
+## 鉴权：DSH 的 Web 服务在 token 闸门后面
+
+DSH 启动时打印的就绪地址带 `?token=…`（Tdsh 的 `UrlPick` 只认这种地址）。插件页面与插件路由
+跑在同一个 WebServer 上，所以：
+
+1. 宿主加载 `overlay.html` 时，把当前 token 拼上去：
+   `…/overlay.html?pet=auto&token=<当前 token>`；
+2. 页面会把查询串里的 `token` **转发给每一次 fetch**（配置、素材、状态、插件路由）；
+3. 容器重启后 token 会变 —— 插件会用新端口发新 `gen`，宿主重取 token 再 `loadUrl` 即可。
+
+Tdsh 的实现见 `com.dshmobile.probe.PetOverlayHost#withToken()`（宿主仓库，不在本插件内）。
+
 ## 可选加速：WebView JS 桥
 宿主在建窗时可以 `addJavascriptInterface(host, "DshOverlayHost")`，页面会优先用它（同步、无轮询延迟）：
 

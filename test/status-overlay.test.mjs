@@ -106,9 +106,12 @@ const pushes = overlayCalls.length;
 await new Promise((r) => setTimeout(r, 1600));
 assert.equal(overlayCalls.length, pushes, '同一句话不该重复推');
 
-// 换一句话 → 必须再推一次
+// 换一句话 → 必须再推一次（轮询最多等 8 秒，别让 CI 的负载决定成败）
 stateCounter += 1;
-await new Promise((r) => setTimeout(r, 2600));
+const deadline = Date.now() + 8000;
+while (overlayCalls.length <= pushes && Date.now() < deadline) {
+  await new Promise((r) => setTimeout(r, 300));
+}
 assert.ok(overlayCalls.length > pushes, '内容变化后必须重新推');
 
 for (const d of disposers) d(); // 停掉插件的两个定时器，进程才能退出

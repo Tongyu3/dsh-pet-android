@@ -28,6 +28,14 @@
   const preview = q.get('preview') === '1';
   const bridge = window.DshOverlayHost || null;
 
+  /*
+   * DSH 的 Web 服务在鉴权闸门后面（Tdsh 打印的就绪地址形如 /?token=xxx）。
+   * 宿主把窗口指向本页时会把 token 带在查询串上，我们把它转发给每一次 fetch ——
+   * 否则页面能打开、但拉配置/素材/状态全部 401，表现是"宠物不出来、也不报错"。
+   */
+  const TOKEN = q.get('token') || '';
+  const withToken = (u) => (TOKEN ? u + (u.indexOf('?') >= 0 ? '&' : '?') + 'token=' + encodeURIComponent(TOKEN) : u);
+
   const $ = (id) => document.getElementById(id);
   const petEl = $('pet');
   const bubbleEl = $('bubble');
@@ -59,7 +67,7 @@
   const pick = (arr) => (Array.isArray(arr) && arr.length ? arr[Math.floor(Math.random() * arr.length)] : null);
 
   function postJson(path, body) {
-    return fetch(ROUTE + path, {
+    return fetch(withToken(ROUTE + path), {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(body),
@@ -99,7 +107,7 @@
 
   // ---------- 配置 ----------
   async function fetchUpstreamConfig() {
-    const res = await fetch(PET_ROUTE + '/config', { cache: 'no-store' });
+    const res = await fetch(withToken(PET_ROUTE + '/config'), { cache: 'no-store' });
     if (!res.ok) throw new Error(`上游 /dsh-pet-7340/config 返回 HTTP ${res.status}`);
     return res.json();
   }
@@ -141,7 +149,7 @@
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), 10000); // 上游同款 10s 超时：慢网络下宁可跳过动画也不要挂死
     try {
-      const res = await fetch(url, { signal: ac.signal });
+      const res = await fetch(withToken(url), { signal: ac.signal });
       if (!res.ok) throw new Error(`素材 ${name} HTTP ${res.status}`);
       const blob = await res.blob();
       const objectUrl = URL.createObjectURL(blob);
@@ -472,7 +480,7 @@
 
   async function pollUpstream() {
     try {
-      const res = await fetch(PET_ROUTE + '/state', { cache: 'no-store' });
+      const res = await fetch(withToken(PET_ROUTE + '/state'), { cache: 'no-store' });
       if (!res.ok) throw new Error(`上游 /state HTTP ${res.status}`);
       const s = await res.json();
       reportUpstream(true);
@@ -564,7 +572,7 @@
   }
 
   async function reload() {
-    const status = await fetch(ROUTE + '/status')
+    const status = await fetch(withToken(ROUTE + '/status'))
       .then((r) => (r.ok ? r.json() : null))
       .catch(() => null);
     state.screen = pickScreen(status);
