@@ -23,6 +23,17 @@ export const DEFAULTS = Object.freeze({
   baseUrl: '',
   /** 调试日志：把每次发布/应答写进插件日志 */
   debug: false,
+  /**
+   * 文本悬浮条（DSHA 等「只给插件开放文本悬浮层」的移植用）。
+   *   auto = 窗口载体没落地时才用（默认；DSHA 上就是这条路）
+   *   on   = 始终用（窗口也在时当状态提示）
+   *   off  = 完全不用
+   */
+  statusOverlay: 'auto',
+  /** DSHA 3090 桥地址覆盖（默认 http://127.0.0.1:3090） */
+  dshaBase: '',
+  /** DSHA token 路径覆盖（默认自动找 .bridge_token / .bridge_headers） */
+  dshaTokenPath: '',
 });
 
 const FILE = 'settings.json';
@@ -45,6 +56,9 @@ function sanitize(raw) {
   if (Number.isFinite(raw.marginY)) out.marginY = Math.max(0, Math.round(raw.marginY));
   if (typeof raw.baseUrl === 'string') out.baseUrl = raw.baseUrl.trim();
   if (typeof raw.debug === 'boolean') out.debug = raw.debug;
+  if (['auto', 'on', 'off'].includes(raw.statusOverlay)) out.statusOverlay = raw.statusOverlay;
+  if (typeof raw.dshaBase === 'string') out.dshaBase = raw.dshaBase.trim();
+  if (typeof raw.dshaTokenPath === 'string') out.dshaTokenPath = raw.dshaTokenPath.trim();
   return out;
 }
 

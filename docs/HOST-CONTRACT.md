@@ -76,7 +76,6 @@ DSH 安卓版原本就用 `/sdcard/.dsh-phone` 做双向通信（原生灵动岛
 - 坐标单位必须与 `screen` 一致（都是物理像素），否则拖动会漂移。
 
 ## 可选加速：WebView JS 桥
-
 宿主在建窗时可以 `addJavascriptInterface(host, "DshOverlayHost")`，页面会优先用它（同步、无轮询延迟）：
 
 ```kotlin
@@ -130,6 +129,28 @@ wm.addView(web, lp)
    宿主**不要**自己再叠加触摸拖动，否则位移翻倍。
 5. 多宠物 = 多个窗口（`windows[]` 里的 `auto` / `pet:<id>`），每个窗口一个 WebView，互不共享。
 6. 关窗顺序：先 `wm.removeView`，再 `web.destroy()`；窗口在 `onDestroy` 之后销毁会崩。
+
+## 附：DSHA 现状（com.dsh.client）
+
+DSHA 已经有**一条**插件可见的系统层，但只有文本：
+
+| 端点 | 能力 |
+| --- | --- |
+| `GET http://127.0.0.1:3090/app/version` | `BRIDGE_PROTOCOL=… APP_VERSION=… APP_CODE=…`，特性检测 |
+| `GET /app/overlay?kind=&text=&session=` | 顶部文本悬浮条；返回 `DISABLED` / `NO_PERMISSION` / `SKIP_REASONING` / `OK` / `OK_NO_CMD` |
+| `GET /app/notify|toast|vibrate` | 通知 / 提示 / 震动 |
+
+鉴权：`X-Token: <token>`，token 由宿主写到 `/root/.dsh/.bridge_token`，
+并同时提供 `curl -H @/root/.dsh/.bridge_headers` 形式。
+
+窗口权限归 DSHA：`OverlayController.permitted()` 看 `Settings.canDrawOverlays`，
+`enabled()` 看用户开关；插件只读返回值，**不申请、不引导**。
+
+要在 DSHA 上跑出**完整桌宠窗口**，宿主只需把 `OverlayController` 的 TextView 换成
+一个透明 WebView（属性见上一节），加载
+`http://127.0.0.1:<web端口>/dsh-pet-android/overlay.html?pet=<id>`，
+并把窗口位置/尺寸回写进 `pet-overlay.state.json`。插件侧的页面、动画、拖拽都已经是成品，
+不需要改一行。
 
 ## 最小自检
 

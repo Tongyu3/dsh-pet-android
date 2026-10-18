@@ -1,7 +1,7 @@
 {
   "name": "dsh-pet-android",
-  "version": "0.1.0",
-  "description": "dsh-pet 的 Android 上层显示衍生插件：把上游「桌面窗口」分支改造成由宿主持有的系统悬浮窗承载，插件自身不申请、不处理任何悬浮权限。",
+  "version": "0.2.0",
+  "description": "dsh-pet 的 Android 上层显示衍生插件：多载体自动探测——DSHA 走 3090 文本悬浮条，Tdsh 等实现窗口契约的移植走透明悬浮窗。插件自身不申请、不处理任何悬浮权限。",
   "type": "module",
   "main": "src/index.js",
   "exports": {
@@ -12,6 +12,7 @@
   "files": [
     "src",
     "docs",
+    "scripts",
     "cordis.patch.yml",
     "LICENSE",
     "README.md"
@@ -40,8 +41,9 @@
     }
   },
   "scripts": {
-    "test": "node test/smoke.mjs",
-    "check": "node --check src/index.js && node --check src/carrier.js && node --check src/settings.js && node --check src/paths.js && node --check src/overlay/overlay.js && node --check test/smoke.mjs"
+    "test": "node test/smoke.mjs && node test/dsha.test.mjs && node test/status-overlay.test.mjs",
+    "check": "node --check src/index.js && node --check src/carrier.js && node --check src/settings.js && node --check src/paths.js && node --check src/adapters/dsha.js && node --check src/overlay/overlay.js && node --check scripts/install.mjs && node --check test/smoke.mjs && node --check test/dsha.test.mjs && node --check test/status-overlay.test.mjs",
+    "install-plugin": "node scripts/install.mjs"
   },
   "engines": {
     "node": ">=20"

@@ -12,7 +12,13 @@
  *   POST /dsh-pet-android/enable          { on:boolean }（= settings 的快捷方式）
  *   POST /dsh-pet-android/hello           页面首帧上报 { win, pet, size, anchor, marginX, marginY, pets[] }
  *   POST /dsh-pet-android/pointer         无 JS 桥时的高频回退上报 { win, x, y }
+ *   POST /dsh-pet-android/statusline      手动推一行到 DSHA 文本悬浮条 { text, kind?, session?, force? }
  *   POST /dsh-pet-android/report          页面侧观测 { upstreamOk, error }
+ *
+ * 两条载体（自动选择，/status.carriers 可查）：
+ *   · host-window   —— 宿主实现契约 v1（Tdsh 及任何实现了的移植）→ 完整桌宠；
+ *   · statusOverlay —— DSHA 3090 桥的文本悬浮条（权限归 DSHA）→ 宠物的话实时上屏。
+ *   窗口载体落地时不用文本载体（auto），避免同一句话在屏幕和窗口里各说一遍。
  *
  * 为什么宠物配置不在宿主半侧读：
  *   上游 /dsh-pet-7340/config 的合并逻辑（内置默认 + 用户层 + 种类文件）是上游的领域知识，
@@ -26,6 +32,7 @@ import { createReadStream, existsSync, fstatSync, mkdirSync, writeFileSync } fro
 import { join, normalize, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HostChannel } from './carrier.js';
+import { DshaBridge } from './adapters/dsha.js';
 import { overlayChannelDir, pluginStateDir } from './paths.js';
 import { loadSettings, saveSettings, settingsPath } from './settings.js';
 
@@ -36,7 +43,7 @@ export const name = 'dsh-pet-android';
 export const inject = ['webServer'];
 
 const ROUTE_PREFIX = '/dsh-pet-android';
-const VERSION = '0.1.0';
+const VERSION = '0.2.0';
 
 const OVERLAY_ROOT = fileURLToPath(new URL('./overlay/', import.meta.url));
 
@@ -127,11 +134,122 @@ export function apply(ctx) {
   const logger = ctx.logger ?? console;
   const channel = new HostChannel(overlayChannelDir(), logger);
 
+  /**
+   * 第二载体：DSHA 的文本悬浮条。
+   *
+   * 为什么需要它：DSHA（com.dsh.client）的 3090 桥不提供 WebView/图片悬浮窗，
+   * 插件能碰到的系统级表面只有 OverlayController 那条自绘文本窗。没有它，
+   * 插件在 DSHA 上就只能"装上了但什么也看不见"。有了它，宠物至少在屏幕顶部
+   * 有一个真实存在的、由宿主负责权限的悬浮层。
+   */
+  let statusBridge = new DshaBridge({
+    logger,
+    dshHome: process.env.DSH_HOME,
+    base: settings.dshaBase,
+    tokenPath: settings.dshaTokenPath,
+  });
+  /** 改了 DSHA 桥地址/token 路径就换一个实例（旧实例的冷却别再影响新配置） */
+  function rebuildStatusBridge() {
+    statusBridge = new DshaBridge({
+      logger,
+      dshHome: process.env.DSH_HOME,
+      base: settings.dshaBase,
+      tokenPath: settings.dshaTokenPath,
+    });
+  }
+
   /** 窗口表：id → 窗口快照。页面上报后由宿主按 gen 增量应用 */
   const wins = new Map();
   /** 页面侧观测（上游是否可达等），只用于 /status 展示 */
   const report = { upstreamOk: null, error: null, at: 0, petsReported: false };
   let lastSync = 0;
+  let lastProbeAttempt = 0;
+  let petIndexAt = 0;
+  const petIndex = new Map(); // petId → { name, display }
+
+  /** 回环 GET JSON：上游路由就在同一个 WebServer 上，1.2 秒拿不到就当没有 */
+  async function loopbackJson(path, timeoutMs = 1200) {
+    const port = resolvePort(ctx, settings);
+    if (!port) return null;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+    try {
+      const res = await fetch(`http://127.0.0.1:${port}${path}`, { signal: ac.signal, cache: 'no-store' });
+      return res.ok ? await res.json() : null;
+    } catch {
+      return null;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  /** 上游聚合 → id → {name, display}；30 秒缓存，宠物改名/改显示方式最迟半分钟生效 */
+  function rememberPets(cfg) {
+    petIndex.clear();
+    for (const entry of Object.values(cfg || {})) {
+      if (!entry || !Array.isArray(entry.pets)) continue;
+      for (const pet of entry.pets) {
+        if (!pet || !pet.id) continue;
+        petIndex.set(String(pet.id), { name: String(pet.name || pet.id), display: String(pet.display ?? 'both') });
+      }
+    }
+    petIndexAt = Date.now();
+  }
+
+  /**
+   * 从上游 /state 里挑一句给悬浮条。
+   *
+   * 只挑 display 含 desktop/both 的宠物（与上游 isDesktopVisible 同义）：用户把某只
+   * 设成"只显示在 dsh 内"时，不该在系统悬浮条里看到它。
+   */
+  function pickStatusLine(state) {
+    const pets = state?.pets || {};
+    const ids = Object.keys(pets);
+    if (ids.length === 0) return '';
+    const eligible = ids.filter((id) => {
+      const meta = petIndex.get(id);
+      return !meta || ['desktop', 'both'].includes(meta.display);
+    });
+    const order = eligible.length ? eligible : ids;
+    for (const id of order) {
+      const say = pets[id]?.say;
+      const text = say?.data && typeof say.data.text === 'string' ? say.data.text.trim() : '';
+      if (!text) continue;
+      const meta = petIndex.get(id);
+      return meta?.name ? `${meta.name}：${text}` : text;
+    }
+    return '';
+  }
+
+  /** 每 1.2 秒一轮：只在"窗口载体没落地"时启用（auto），推的内容没变就自动去重 */
+  async function statusTick() {
+    if (settings.statusOverlay === 'off') return;
+    const hostState = channel.readState();
+    const windowLanded =
+      hostState?.applied === true && Array.isArray(hostState.windows) && hostState.windows.length > 0;
+    if (settings.statusOverlay === 'auto' && windowLanded) return;
+
+    const now = Date.now();
+    if (!statusBridge.detected && now - lastProbeAttempt >= 30_000) {
+      lastProbeAttempt = now;
+      await statusBridge.probe();
+    }
+    if (!statusBridge.usable) return;
+
+    const state = await loopbackJson('/dsh-pet-7340/state');
+    if (!state) return;
+    if (now - petIndexAt > 30_000) {
+      const cfg = await loopbackJson('/dsh-pet-7340/config');
+      if (cfg) rememberPets(cfg);
+    }
+    const line = pickStatusLine(state);
+    if (!line) return;
+    const reply = await statusBridge.overlay(line, { session: 'pet' });
+    if (reply === 'DISABLED' || reply === 'NO_PERMISSION') {
+      // 悬浮条被用户关掉 / 没给权限：插件就此停手，权限与开关都在宿主那边
+      logger.info?.(`[dsh-pet-android] DSHA 悬浮条不可用（${reply}），60 秒内不再尝试`);
+    }
+  }
 
   const log = (...args) => {
     if (settings.debug) logger.info?.(...args);
@@ -181,7 +299,9 @@ export function apply(ctx) {
 
   /** 应用设置补丁：落盘 → 立即重发快照（开关要立刻生效，不能等下一个 sync 周期） */
   function applySettings(patch) {
+    const before = { base: settings.dshaBase, token: settings.dshaTokenPath, status: settings.statusOverlay };
     settings = saveSettings(patch);
+    if (before.base !== settings.dshaBase || before.token !== settings.dshaTokenPath) rebuildStatusBridge();
     sync(true);
     return settings;
   }
@@ -234,6 +354,24 @@ export function apply(ctx) {
         windows: [...wins.values()],
         windowReport: report,
         lastSync,
+        /**
+         * 载体清单：调用方（人/脚本）一眼看出这台设备上宠物到底走哪条路。
+         *   window        = 宿主实现的悬浮窗契约（Tdsh 及任何实现了契约的移植）
+         *   statusOverlay = DSHA 的 3090 文本悬浮条（只给文本，权限归 DSHA）
+         */
+        carriers: {
+          window: {
+            kind: 'host-window-contract-v1',
+            channelDir: overlayChannelDir(),
+            requestFile: channel.requestFile,
+            stateFile: channel.stateFile,
+            applied: state?.applied === true,
+            windows: Array.isArray(state?.windows) ? state.windows.length : 0,
+            screen: state?.screen ?? null,
+            error: channel.lastError || state?.error || null,
+          },
+          statusOverlay: { ...statusBridge.status(), enabled: settings.statusOverlay },
+        },
       });
     }
 
@@ -316,6 +454,23 @@ export function apply(ctx) {
       return sendJson(res, 200, { ok: true });
     }
 
+    // ---- 文本悬浮条：手动推一行（页面/脚本/自检用） ----
+    if (rest === '/statusline' && method === 'POST') {
+      let body;
+      try {
+        body = JSON.parse((await readBody(req)) || '{}');
+      } catch {
+        return sendJson(res, 400, { ok: false, error: 'invalid JSON' });
+      }
+      if (!statusBridge.detected) await statusBridge.probe();
+      const reply = await statusBridge.overlay(String(body.text ?? ''), {
+        kind: typeof body.kind === 'string' ? body.kind : 'text',
+        session: typeof body.session === 'string' ? body.session : 'pet',
+        force: body.force === true,
+      });
+      return sendJson(res, 200, { ok: Boolean(reply), reply, carrier: statusBridge.status() });
+    }
+
     // ---- 页面观测（上游可达性 / 渲染错误） ----
     if (rest === '/report' && method === 'POST') {
       try {
@@ -356,15 +511,21 @@ export function apply(ctx) {
   ctx.effect(() => {
     sync(true);
     const timer = setInterval(() => sync(false), settings.syncMs);
-    // 关闭/卸载插件：发一份 enabled:false 的全量快照，让宿主把窗口收走。
-    // 这是**协议内的关闭动作**，不是权限兜底 —— 宿主仍然可以自行决定不关。
+    // 文本悬浮条：只在窗口载体没落地时工作（auto），DSHA 上就是这条路
+    const statusTimer = setInterval(() => {
+      void statusTick();
+    }, 1200);
+    // 关闭/卸载插件：发一份 enabled:false 的全量快照，让宿主把窗口收走；
+    // 同时清掉 DSHA 悬浮条上残留的那一行。
     return () => {
       clearInterval(timer);
+      clearInterval(statusTimer);
       try {
         channel.publish({ enabled: false, baseUrl: '', windows: [] });
       } catch {
         /* 退出阶段尽力而为 */
       }
+      void statusBridge.clear();
     };
   }, 'dsh-pet-android: host channel sync');
 
