@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>dsh-pet-android 控制面板</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0;
+        padding: 18px;
+        font: 14px/1.6 system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+        background: #0f141b;
+        color: #e6edf6;
+      }
+      h1 { font-size: 18px; margin: 0 0 4px; }
+      .sub { color: #8fa3bb; margin-bottom: 16px; }
+      .card { background: #161d27; border: 1px solid #232e3c; border-radius: 12px; padding: 14px; margin-bottom: 14px; }
+      .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 6px 0; }
+      label { color: #b9c8da; }
+      input[type='number'], input[type='text'], select {
+        background: #0c1118; color: #e6edf6; border: 1px solid #2b3747; border-radius: 8px; padding: 6px 8px; width: 120px;
+      }
+      button {
+        background: #2f6df6; color: #fff; border: 0; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
+      }
+      button.ghost { background: #223044; }
+      pre { white-space: pre-wrap; word-break: break-all; background: #0b1016; border-radius: 10px; padding: 12px; margin: 0; }
+      .ok { color: #52d273; }
+      .bad { color: #f0746b; }
+      a { color: #7fb1ff; }
+    </style>
+  </head>
+  <body>
+    <h1>dsh-pet-android</h1>
+    <div class="sub">Android 上层显示的桌宠插件 —— 窗口与悬浮权限由宿主负责，本插件只提交请求与渲染页面。</div>
+
+    <div class="card">
+      <div class="row">
+        <strong>显示开关</strong>
+        <button id="toggle">读取中…</button>
+        <span id="toggle-state" class="sub"></span>
+      </div>
+      <div class="row">
+        <label>同步间隔(ms)</label><input id="syncMs" type="number" min="500" max="10000" step="100" />
+        <label>锚点</label>
+        <select id="anchor">
+          <option value="top-right">右上</option>
+          <option value="top-left">左上</option>
+          <option value="bottom-right">右下</option>
+          <option value="bottom-left">左下</option>
+        </select>
+        <label>边距X</label><input id="marginX" type="number" min="0" />
+        <label>边距Y</label><input id="marginY" type="number" min="0" />
+        <button id="save" class="ghost">保存</button>
+      </div>
+      <div class="row">
+        <a id="preview" href="./overlay.html?preview=1&pet=auto" target="_blank">在新窗口预览宠物（仅验收用，不改变宿主窗口）</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row"><strong>状态</strong><button id="refresh" class="ghost">刷新</button></div>
+      <pre id="status">加载中…</pre>
+    </div>
+
+    <script>
+      const $ = (id) => document.getElementById(id);
+      const ROUTE = '/dsh-pet-android';
+      let settings = null;
+
+      async function load() {
+        const r = await fetch(ROUTE + '/status', { cache: 'no-store' });
+        const s = await r.json();
+        settings = s.settings;
+        $('toggle').textContent = s.enabled ? '点击关闭' : '点击开启';
+        $('toggle-state').innerHTML = s.enabled ? '<span class="ok">已开启</span>' : '<span class="bad">已关闭</span>';
+        $('syncMs').value = settings.syncMs;
+        $('anchor').value = settings.anchor;
+        $('marginX').value = settings.marginX;
+        $('marginY').value = settings.marginY;
+        $('status').textContent = JSON.stringify(s, null, 2);
+      }
+
+      async function post(path, body) {
+        const r = await fetch(ROUTE + path, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(body),
+        });
+        return r.json();
+      }
+
+      $('toggle').onclick = async () => {
+        await post('/enable', { on: !settings.enabled });
+        load();
+      };
+      $('save').onclick = async () => {
+        await post('/settings', {
+          syncMs: Number($('syncMs').value),
+          anchor: $('anchor').value,
+          marginX: Number($('marginX').value),
+          marginY: Number($('marginY').value),
+        });
+        load();
+      };
+      $('refresh').onclick = load;
+      load();
+      setInterval(load, 3000);
+    </script>
+  </body>
+</html>

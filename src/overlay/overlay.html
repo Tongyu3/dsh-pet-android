@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <!-- 悬浮窗是固定像素窗口：禁止页面自己缩放，否则宠物大小与宿主建窗尺寸对不上 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <meta name="color-scheme" content="light dark" />
+    <title>dsh-pet-android</title>
+    <link rel="stylesheet" href="./overlay.css" />
+  </head>
+  <body class="pet-mode">
+    <!-- stage 是"宠物坐标空间"；window 模式下它就是整块悬浮窗，preview 模式下它是整页 -->
+    <div id="stage" class="stage">
+      <div id="pet" class="pet" role="img" aria-label="桌宠">
+        <div id="bubble" class="bubble" hidden><span id="bubble-text" class="bubble-text"></span></div>
+        <div class="body">
+          <!-- 双 video 交叉淡入：与上游浏览器/桌面端一致，切动画时不闪白 -->
+          <video id="va" class="vid" muted playsinline autoplay></video>
+          <video id="vb" class="vid" muted playsinline autoplay></video>
+        </div>
+        <div id="hint" class="hint" hidden></div>
+      </div>
+    </div>
+    <script src="./overlay.js"></script>
+  </body>
+</html>

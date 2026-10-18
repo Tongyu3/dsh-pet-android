@@ -1,0 +1,13 @@
+# 插件本身没有依赖，node_modules 只会在本地折腾时出现
+node_modules/
+
+# npm pack 产物
+*.tgz
+
+# 验收用的素材替身：上游 webm 属于上游项目，不随本仓库分发
+test/fixtures/*.webm
+test/fixtures/*.mov
+test/fixtures/*.png
+
+# 本地验收时插件写出来的状态
+.preview-state/

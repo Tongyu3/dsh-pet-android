@@ -1,0 +1,49 @@
+{
+  "name": "dsh-pet-android",
+  "version": "0.1.0",
+  "description": "dsh-pet 的 Android 上层显示衍生插件：把上游「桌面窗口」分支改造成由宿主持有的系统悬浮窗承载，插件自身不申请、不处理任何悬浮权限。",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "docs",
+    "cordis.patch.yml",
+    "LICENSE",
+    "README.md"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "android",
+    "desktop-pet",
+    "overlay",
+    "cordis"
+  ],
+  "license": "MIT",
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  },
+  "peerDependencies": {
+    "dsh-pet": ">=0.3.7"
+  },
+  "peerDependenciesMeta": {
+    "dsh-pet": {
+      "optional": true
+    }
+  },
+  "scripts": {
+    "test": "node test/smoke.mjs",
+    "check": "node --check src/index.js && node --check src/carrier.js && node --check src/settings.js && node --check src/paths.js && node --check src/overlay/overlay.js && node --check test/smoke.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

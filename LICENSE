@@ -1,0 +1,36 @@
+MIT License
+
+Copyright (c) 2026 dsh-pet-android contributors
+
+--------------------------------------------------------------------------
+本仓库是 dsh-pet 的衍生作品（Android 上层显示形式），不是上游本体。
+上游项目：https://github.com/PC2005-cloud/dsh-pet
+上游作者与版权：Copyright (c) 2026 PC2005-cloud
+上游许可证：MIT
+本仓库不含上游本体代码，上游代码由使用者按上游仓库自行安装取得。
+详见 README.md 的「开源合规」一节。
+--------------------------------------------------------------------------
+
+以下为上游 dsh-pet 的 MIT 许可证原文，按 MIT 条款要求随本衍生作品一并保留：
+
+MIT License
+
+Copyright (c) 2026 PC2005-cloud
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
